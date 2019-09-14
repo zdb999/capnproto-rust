@@ -215,7 +215,7 @@ mod test {
     fn drop_in_poll() {
         let slot = Rc::new(RefCell::new(None));
         let slot2 = slot.clone();
-        let (f1, f2) = split(::futures::future::lazy(move |_| {
+        let (f1, f2) = split(Box::pin(async move {
             drop(slot2.borrow_mut().take().unwrap());
             Ok::<_,()>((11,"foo"))
         }));

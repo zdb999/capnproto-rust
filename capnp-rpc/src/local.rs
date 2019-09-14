@@ -25,8 +25,7 @@ use capnp::capability::{self, Promise};
 use capnp::private::capability::{ClientHook, ParamsHook, PipelineHook, PipelineOp,
                                  RequestHook, ResponseHook, ResultsHook};
 
-use crate::attach::Attach;
-use futures::{FutureExt, TryFutureExt};
+use futures::{TryFutureExt};
 use futures::channel::oneshot;
 
 use std::cell::RefCell;
@@ -323,13 +322,17 @@ impl ClientHook for Client {
         // TODO: actually use some kind of queue here to guarantee that call order in maintained.
         // This currently relies on the task scheduler being first-in-first-out.
         let inner = self.inner.clone();
-        let promise = ::futures::future::lazy(move |_| {
-            let server = &mut inner.borrow_mut().server;
-            server.dispatch_call(interface_id, method_id,
-                                 ::capnp::capability::Params::new(params),
-                                 ::capnp::capability::Results::new(results))
-        }).then(|x| x).attach(self.add_ref());
-        Promise::from_future(promise)
+        Promise::from_future(async move {
+            let f = {
+                // We put this borrow_mut() inside a block to avoid a potential
+                // double borrow during f.await
+                let server = &mut inner.borrow_mut().server;
+                server.dispatch_call(interface_id, method_id,
+                                     ::capnp::capability::Params::new(params),
+                                     ::capnp::capability::Results::new(results))
+            };
+            f.await
+        })
     }
 
     fn get_ptr(&self) -> usize {

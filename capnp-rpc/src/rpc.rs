@@ -546,7 +546,7 @@ impl <VatId> ConnectionState<VatId> {
     }
 
     fn add_task<F>(&self, task: F)
-        where F: Future<Output=Result<(),Error>> + 'static + Unpin
+        where F: Future<Output=Result<(),Error>> + 'static
     {
         if let Some(ref mut tasks) = *self.tasks.borrow_mut() {
             tasks.add(task);
@@ -903,7 +903,7 @@ impl <VatId> ConnectionState<VatId> {
 
                             let connection_state_ref = connection_state.clone();
                             let connection_state_ref1 = connection_state.clone();
-                            let task = future::lazy(move |_| {
+                            let task = async move {
                                 if let Ok(ref mut c) = *connection_state_ref.connection.borrow_mut() {
                                     let mut message = c.new_outgoing_message(100); // TODO estimate size
                                     {
@@ -926,7 +926,7 @@ impl <VatId> ConnectionState<VatId> {
                                     let _ = message.send();
                                 }
                                 Ok(())
-                            });
+                            };
                             connection_state.add_task(task);
                             BorrowWorkaround::Done
                         }
@@ -2581,10 +2581,10 @@ impl <VatId> PromiseClient<VatId> {
         }
 
         let old_cap = mem::replace(&mut self.cap, replacement);
-        connection_state.add_task(future::lazy(move |_| {
+        connection_state.add_task(async move {
             drop(old_cap);
             Ok(())
-        }));
+        });
 
         self.is_resolved = true;
     }

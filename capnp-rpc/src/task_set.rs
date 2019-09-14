@@ -28,7 +28,7 @@ use std::cell::{RefCell};
 use std::rc::Rc;
 
 enum EnqueuedTask<E> {
-    Task(Box<dyn Future<Output=Result<(), E>> + Unpin>),
+    Task(Pin<Box<dyn Future<Output=Result<(), E>>>>),
     Terminate(Result<(), E>),
 }
 
@@ -101,9 +101,9 @@ pub struct TaskSetHandle<E> {
 
 impl <E> TaskSetHandle<E> where E: 'static {
     pub fn add<F>(&mut self, f: F)
-        where F: Future<Output = Result<(), E>> + 'static + Unpin
+        where F: Future<Output = Result<(), E>> + 'static
     {
-        let _ = self.sender.unbounded_send(EnqueuedTask::Task(Box::new(f)));
+        let _ = self.sender.unbounded_send(EnqueuedTask::Task(Box::pin(f)));
     }
 
     pub fn terminate(&mut self, result: Result<(), E>) {
