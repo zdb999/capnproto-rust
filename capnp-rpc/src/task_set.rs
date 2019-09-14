@@ -52,7 +52,7 @@ impl <E> Future for TaskInProgress<E> {
             TaskInProgress::Terminate(ref mut r) =>
                 Poll::Ready(TaskDone::Terminate(r.take().unwrap())),
             TaskInProgress::Task(ref mut f) => {
-                match Pin::new(f).poll(cx) {
+                match f.as_mut().poll(cx) {
                     Poll::Pending => Poll::Pending,
                     Poll::Ready(()) => Poll::Ready(TaskDone::Continue),
                 }
