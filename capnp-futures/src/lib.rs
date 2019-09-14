@@ -21,7 +21,7 @@
 extern crate futures;
 
 pub use read_stream::ReadStream;
-pub use write_queue::{write_queue, Sender, WriteQueue};
+pub use write_queue::{write_queue, Sender};
 
 pub mod serialize;
 mod read_stream;

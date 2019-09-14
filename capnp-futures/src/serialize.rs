@@ -175,7 +175,7 @@ impl <A> AsOutputSegments for ::std::rc::Rc<message::Builder<A>> where A: messag
     }
 }
 
-/// Begins an asynchronous write of provided message to `writer`.
+/// Writes the provided message to `writer`. Does not call `flush()`.
 pub async fn write_message<W,M>(mut writer: W, message: M) -> Result<()>
     where W: AsyncWrite + Unpin, M: AsOutputSegments
 {
