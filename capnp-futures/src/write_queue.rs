@@ -106,8 +106,9 @@ pub fn write_queue<W, M>(writer: W) -> (Sender<M>, WriteQueue<W, M>)
 }
 
 impl <M> Sender<M> where M: AsOutputSegments + 'static {
-    /// Enqueues a message to be written.
-    pub fn send(&mut self, message: M) -> Box<dyn Future<Output=Result<M,Error>> + Unpin> {
+    /// Enqueues a message to be written. The returned future resolves once the write
+    /// has completed.
+    pub fn send(&mut self, message: M) -> impl Future<Output=Result<M,Error>> + Unpin + 'static {
         let (complete, oneshot) = oneshot::channel();
 
         match self.inner.upgrade() {
@@ -126,9 +127,8 @@ impl <M> Sender<M> where M: AsOutputSegments + 'static {
             }
         }
 
-        Box::new(
-            oneshot.map_err(
-                |oneshot::Canceled| Error::disconnected("WriteQueue has terminated".into())))
+        oneshot.map_err(
+            |oneshot::Canceled| Error::disconnected("WriteQueue has terminated".into()))
     }
 
     /// Returns the number of messages queued to be written, not including any in-progress write.
