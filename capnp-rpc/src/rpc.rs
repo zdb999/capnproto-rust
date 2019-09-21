@@ -535,14 +535,13 @@ impl <VatId> ConnectionState<VatId> {
     {
         let (tx, rx) = oneshot::channel::<Result<T,Error>>();
         let (tx2, rx2) = oneshot::channel::<()>();
-        let f1 = Box::pin(task.map(move |r| { let _ = tx.send(r); Ok(())}))
-            as Pin<Box<dyn Future<Output = Result<(),Error>> + Unpin>>;
-        let f2 = Box::pin(rx2.map_err(crate::canceled_to_error).map(|_| Ok(())))
-            as Pin<Box<dyn Future<Output = Result<(),Error>> + Unpin>>;
+        let f1 = Box::pin(task.map(move |r| { let _ = tx.send(r);}))
+            as Pin<Box<dyn Future<Output = ()> + Unpin>>;
+        let f2 = Box::pin(rx2.map(drop))
+            as Pin<Box<dyn Future<Output = ()> + Unpin>>;
 
-        self.add_task(future::select(f1, f2).map(|r| r.into_inner().0));
-        Promise::from_future(rx.map_err(crate::canceled_to_error).and_then(|v| {
-            match v { Ok(x) => Promise::ok(x), Err(e) => Promise::err(e) } }).map(|v| { let _ = tx2.send(()); v}))
+        self.add_task(future::select(f1, f2).map(|_| Ok(())));
+        Promise::from_future(rx.map_err(crate::canceled_to_error).map(|r| {drop(tx2); r?}))
     }
 
     fn add_task<F>(&self, task: F)
