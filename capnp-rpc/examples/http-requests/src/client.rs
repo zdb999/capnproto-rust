@@ -24,8 +24,6 @@ use crate::http_capnp::{outgoing_http};
 
 use futures::{AsyncReadExt, FutureExt};
 
-use tokio_executor::current_thread::{self};
-
 pub fn main() {
     use std::net::ToSocketAddrs;
     let args: Vec<String> = ::std::env::args().collect();
@@ -35,7 +33,8 @@ pub fn main() {
     }
 
     let addr = args[2].to_socket_addrs().unwrap().next().expect("could not parse address");
-    let mut rt = tokio::runtime::current_thread::Runtime::new().unwrap();
+    let mut rt = tokio::runtime::Runtime::new().unwrap();
+    let spawner = rt.spawner();
     let result: Result<(), Box<dyn std::error::Error>> = rt.block_on(async move {
         let stream = tokio::net::TcpStream::connect(&addr).await?;
         stream.set_nodelay(true).unwrap();
@@ -50,7 +49,7 @@ pub fn main() {
         let proxy: outgoing_http::Client =
             rpc_system.bootstrap(rpc_twoparty_capnp::Side::Server);
 
-        current_thread::spawn(Box::pin(rpc_system.map(|_| ())));
+        spawner.spawn(Box::pin(rpc_system.map(|_| ())));
 
         let mut req = proxy.new_session_request();
 

@@ -207,9 +207,9 @@ pub fn main() {
     let addr = args[2].to_socket_addrs().unwrap().next().expect("could not parse address");
 
     let mut exec = futures::executor::LocalPool::new();
-    let mut spawner = exec.spawner();
+    let spawner = exec.spawner();
     let result: Result<(), Box<dyn std::error::Error>> = exec.run_until(async move {
-        let mut listener = romio::TcpListener::bind(&addr)?;
+        let listener = async_std::net::TcpListener::bind(&addr).await?;
         let calc =
             calculator::ToClient::new(CalculatorImpl).into_client::<::capnp_rpc::Server>();
 

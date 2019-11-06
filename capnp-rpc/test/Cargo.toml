@@ -19,7 +19,7 @@ path = "../"
 
 [dependencies]
 capnp = { path = "../../capnp" }
-futures-preview = "0.3.0-alpha.18"
+futures = "0.3.0"
 async-std = { git = "https://github.com/async-rs/async-std"}
 
 

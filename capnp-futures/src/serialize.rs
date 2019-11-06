@@ -236,11 +236,12 @@ async fn write_segments<W>(mut write: W, segments: &[&[Word]]) -> Result<()>
 #[cfg(test)]
 pub mod test {
     use std::cmp;
-    use std::io::{self, Cursor, Read, Write};
+    use std::io::{self, Read, Write};
     use std::pin::Pin;
     use std::task::{Context, Poll};
 
     use futures::{AsyncRead, AsyncWrite};
+    use futures::io::Cursor;
 
     use quickcheck::{quickcheck, TestResult};
 
@@ -506,7 +507,7 @@ pub mod test {
             }
 
             let (mut read, segments) = {
-                let cursor = Cursor::new(Vec::new());
+                let cursor = std::io::Cursor::new(Vec::new());
                 let mut writer = BlockingWrite::new(cursor, write_block_frequency);
                 futures::executor::block_on(Box::pin(write_message(&mut writer, &segments))).expect("writing");
 

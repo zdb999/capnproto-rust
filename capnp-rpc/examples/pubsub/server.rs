@@ -111,13 +111,13 @@ pub fn main() {
     }
 
     let mut exec = futures::executor::LocalPool::new();
-    let mut spawner1 = exec.spawner();
-    let mut spawner2 = exec.spawner();
+    let spawner1 = exec.spawner();
+    let spawner2 = exec.spawner();
 
     let addr = args[2].to_socket_addrs().unwrap().next().expect("could not parse address");
 
     let result: Result<(), Box<dyn std::error::Error>> = exec.run_until(async move {
-        let mut socket = romio::TcpListener::bind(&addr)?;
+        let mut socket = async_std::net::TcpListener::bind(&addr).await?;
         let (publisher_impl, subscribers) = PublisherImpl::new();
         let publisher = publisher::ToClient::new(publisher_impl).into_client::<::capnp_rpc::Server>();
         let mut incoming = socket.incoming();

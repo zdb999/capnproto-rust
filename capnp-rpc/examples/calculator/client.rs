@@ -57,13 +57,13 @@ pub fn main() {
     exec.run_until(try_main(args, spawner)).expect("try main");
 }
 
-async fn try_main(args: Vec<String>, mut spawner: futures::executor::LocalSpawner)
+async fn try_main(args: Vec<String>, spawner: futures::executor::LocalSpawner)
                   -> Result<(), Box<dyn std::error::Error>>
 {
     use std::net::ToSocketAddrs;
 
     let addr = args[2].to_socket_addrs()?.next().expect("could not parse address");
-    let stream = romio::TcpStream::connect(&addr).await?;
+    let stream = async_std::net::TcpStream::connect(&addr).await?;
     stream.set_nodelay(true)?;
     let (reader, writer) = stream.split();
 

@@ -50,7 +50,7 @@ pub fn main() {
 
     let mut exec = futures::executor::LocalPool::new();
     let result: Result<(), Box<dyn std::error::Error>> = exec.run_until(async move {
-        let stream = romio::TcpStream::connect(&addr).await?;
+        let stream = async_std::net::TcpStream::connect(&addr).await?;
         stream.set_nodelay(true)?;
         let (reader, writer) = stream.split();
         let rpc_network =

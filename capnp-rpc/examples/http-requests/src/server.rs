@@ -27,8 +27,6 @@ use capnp::Error;
 
 use futures::{AsyncReadExt, FutureExt, StreamExt, TryFutureExt};
 
-use tokio_executor::current_thread::{self};
-
 struct OutgoingHttp;
 
 impl OutgoingHttp {
@@ -111,7 +109,8 @@ pub fn main() {
 
     let addr = args[2].to_socket_addrs().unwrap().next().expect("could not parse address");
 
-    let mut rt = tokio::runtime::current_thread::Runtime::new().unwrap();
+    let mut rt = tokio::runtime::Runtime::new().unwrap();
+    let spawner = rt.spawner();
     let result: Result<(), Box<dyn std::error::Error>> = rt.block_on(async move {
         let listener = tokio::net::TcpListener::bind(&addr).await?;
         let mut incoming = listener.incoming();
@@ -127,7 +126,7 @@ pub fn main() {
 
             let rpc_system = RpcSystem::new(Box::new(network), Some(proxy.clone().client));
 
-            current_thread::spawn(Box::pin(rpc_system.map(|_| ())));
+            spawner.spawn(Box::pin(rpc_system.map(|_| ())));
         }
         Ok(())
     });

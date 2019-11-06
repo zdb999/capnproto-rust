@@ -76,7 +76,7 @@ impl<E> TaskSet<E> where E: 'static {
     {
         let (sender, receiver) = mpsc::unbounded();
 
-        let mut set = TaskSet {
+        let set = TaskSet {
             enqueued: Some(receiver),
             in_progress: FuturesUnordered::new(),
             reaper: Rc::new(RefCell::new(reaper)),

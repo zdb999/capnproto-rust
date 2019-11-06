@@ -14,10 +14,9 @@ capnpc = { path = "../../../capnpc" }
 
 [dependencies]
 capnp = { path = "../../../capnp" }
-futures-preview = "0.3.0-alpha.18"
+futures = "0.3.0"
 hyper = { git = "https://github.com/hyperium/hyper" }
-tokio = "0.2.0-alpha.4"
-tokio-executor = "0.2.0-alpha.4"
+tokio = { git = "https://github.com/tokio-rs/tokio", features = ["rt-current-thread"]}
 futures-tokio-compat = { git = "https://github.com/Nemo157/futures-tokio-compat" }
 
 [dependencies.capnp-rpc]
