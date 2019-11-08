@@ -112,7 +112,7 @@ mod tests {
         let mut m = capnp::message::Builder::new_default();
         populate_address_book(m.init_root());
         let mut exec = futures::executor::LocalPool::new();
-        let mut spawner = exec.spawner();
+        let spawner = exec.spawner();
         spawner.spawn_local_obj(Box::new(sender.send(m).map(|_|())).into()).expect("spawing write task");
         drop(sender);
 
@@ -148,7 +148,7 @@ mod tests {
             });
 
         let mut exec = futures::executor::LocalPool::new();
-        let mut spawner = exec.spawner();
+        let spawner = exec.spawner();
         spawner.spawn_local_obj(Box::new(f0).into()).expect("spawing write task");
 
         exec.run_until(f1).expect("read task");
