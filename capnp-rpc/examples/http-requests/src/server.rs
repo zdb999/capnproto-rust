@@ -110,8 +110,8 @@ pub fn main() {
     let addr = args[2].to_socket_addrs().unwrap().next().expect("could not parse address");
 
     let mut rt = tokio::runtime::Runtime::new().unwrap();
-    let spawner = rt.spawner();
-    let result: Result<(), Box<dyn std::error::Error>> = rt.block_on(async move {
+    let local = tokio::task::LocalSet::new();
+    let result: Result<(), Box<dyn std::error::Error>> = local.block_on(&mut rt, async move {
         let listener = tokio::net::TcpListener::bind(&addr).await?;
         let mut incoming = listener.incoming();
         let proxy = outgoing_http::ToClient::new(OutgoingHttp::new()).into_client::<::capnp_rpc::Server>();
@@ -126,7 +126,7 @@ pub fn main() {
 
             let rpc_system = RpcSystem::new(Box::new(network), Some(proxy.clone().client));
 
-            spawner.spawn(Box::pin(rpc_system.map(|_| ())));
+            tokio::task::spawn_local(Box::pin(rpc_system.map(|_| ())));
         }
         Ok(())
     });

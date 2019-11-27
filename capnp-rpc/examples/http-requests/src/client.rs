@@ -34,8 +34,8 @@ pub fn main() {
 
     let addr = args[2].to_socket_addrs().unwrap().next().expect("could not parse address");
     let mut rt = tokio::runtime::Runtime::new().unwrap();
-    let spawner = rt.spawner();
-    let result: Result<(), Box<dyn std::error::Error>> = rt.block_on(async move {
+    let local = tokio::task::LocalSet::new();
+    let result: Result<(), Box<dyn std::error::Error>> = local.block_on(&mut rt, async move {
         let stream = tokio::net::TcpStream::connect(&addr).await?;
         stream.set_nodelay(true).unwrap();
         let (reader, writer) = futures_tokio_compat::Compat::new(stream).split();
@@ -49,7 +49,7 @@ pub fn main() {
         let proxy: outgoing_http::Client =
             rpc_system.bootstrap(rpc_twoparty_capnp::Side::Server);
 
-        spawner.spawn(Box::pin(rpc_system.map(|_| ())));
+        tokio::task::spawn_local(Box::pin(rpc_system.map(|_| ())));
 
         let mut req = proxy.new_session_request();
 

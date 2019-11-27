@@ -11,7 +11,7 @@ members = [
     "capnpc/test",
     "capnp-futures/test",
     "capnp-rpc/examples/calculator",
-    #"capnp-rpc/examples/http-requests", comment out until tokio is usable
+    #"capnp-rpc/examples/http-requests", tokio still needs compatibility with futures::io::AsyncRead/Write
     "capnp-rpc/examples/pubsub",
     "capnp-rpc/test",
     "example/addressbook",
