@@ -1228,12 +1228,7 @@ fn generate_node(gen: &GeneratorContext,
             let mut field_docs = field_docs.iter();
 
             for field in fields.iter() {
-                // let mut field_comment = field_docs.next().unwrap();
-                // if has_field_docs {
-                //     if let Some(Some(doc_text)) = field_docs.next() {
-                //         preamble.push(Line(format!("/*! {} */", doc_text.clone())));
-                //    };
-                // };
+                
                 let name = get_field_name(field)?;
                 let styled_name = camel_to_snake_case(name);
 
