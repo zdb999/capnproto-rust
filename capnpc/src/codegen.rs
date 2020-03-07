@@ -983,6 +983,7 @@ fn generate_union(gen: &GeneratorContext,
 fn generate_haser(discriminant_offset: u32,
                   styled_name: &str,
                   field: &schema_capnp::field::Reader,
+                  has_doc_text: bool,
                   is_reader: bool) -> ::capnp::Result<FormattedText> {
     use crate::schema_capnp::*;
 
@@ -1008,6 +1009,9 @@ fn generate_haser(discriminant_offset: u32,
                     interior.push(
                         Line(format!("!self.{}.get_pointer_field({}).is_null()",
                                      member, reg_field.get_offset())));
+                    if has_doc_text {
+                        result.push(Line(format!("/** This checks to see if the field \"{}\" exists. */", styled_name)));
+                    }
                     result.push(
                         Line(format!("pub fn has_{}(&self) -> bool {{", styled_name)));
                     result.push(
@@ -1241,7 +1245,7 @@ fn generate_node(gen: &GeneratorContext,
                         if let Some(Some(doc_text)) = field_docs.next() {
                             reader_members.push(Line(format!("/** {} */", doc_text.clone())));
                             builder_members.push(Line(format!("/** {} */", doc_text.clone())));
-                            has_doc_text = true;
+                            has_doc_text = doc_text != &"".to_string();
                         };
                     };
                     pipeline_impl_interior.push(generate_pipeline_getter(gen, field)?);
@@ -1271,8 +1275,8 @@ fn generate_node(gen: &GeneratorContext,
                 builder_members.push(generate_setter(gen, discriminant_offset,
                                                      &styled_name, &field, has_doc_text)?);
 
-                reader_members.push(generate_haser(discriminant_offset, &styled_name, &field, true)?);
-                builder_members.push(generate_haser(discriminant_offset, &styled_name, &field, false)?);
+                reader_members.push(generate_haser(discriminant_offset, &styled_name, &field, has_field_docs, true)?);
+                builder_members.push(generate_haser(discriminant_offset, &styled_name, &field, has_doc_text, false)?);
 
                 match field.which() {
                     Ok(field::Group(group)) => {
