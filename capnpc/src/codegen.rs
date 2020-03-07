@@ -34,6 +34,7 @@ pub struct GeneratorContext<'a> {
     pub request: schema_capnp::code_generator_request::Reader<'a>,
     pub node_map: collections::hash_map::HashMap<u64, schema_capnp::node::Reader<'a>>,
     pub scope_map: collections::hash_map::HashMap<u64, Vec<String>>,
+    pub doc_map: collections::hash_map::HashMap<u64, schema_capnp::node::source_info::Reader<'a>>,
 }
 
 impl <'a> GeneratorContext<'a> {
@@ -46,10 +47,15 @@ impl <'a> GeneratorContext<'a> {
             request : message.get_root()?,
             node_map: collections::hash_map::HashMap::<u64, schema_capnp::node::Reader<'a>>::new(),
             scope_map: collections::hash_map::HashMap::<u64, Vec<String>>::new(),
+            doc_map: collections::hash_map::HashMap::<u64, schema_capnp::node::source_info::Reader<'a>>::new()
         };
-
+ 
         for node in gen.request.get_nodes()?.iter() {
             gen.node_map.insert(node.get_id(), node);
+        }
+
+        for source_info in gen.request.get_source_info()?.iter() {
+            gen.doc_map.insert(source_info.get_id(), source_info);
         }
 
         for requested_file in gen.request.get_requested_files()?.iter() {
@@ -90,6 +96,43 @@ impl <'a> GeneratorContext<'a> {
                 Some(n) => Ok(&n),
             }
         }
+    }
+
+    fn get_node_doc_text<'b>(&'b self, node_id: u64) -> Option<String> {
+
+        let doc_node = match self.doc_map.get(&node_id) {
+            Some(doc_node) => doc_node,
+            None => return None,
+        };
+        
+        let doc_string = match doc_node.get_doc_comment() {
+            Ok(reader) => String::from(reader),
+            Err(_) => return None
+        };
+        Some(doc_string)
+    }
+
+    fn get_fields_doc_text<'b>(&'b self, node_id: u64) -> Option<Vec<Option<String>>> {
+
+        let doc_node = match self.doc_map.get(&node_id) {
+            Some(doc_node) => doc_node,
+            None => return None,
+        };
+
+        let members = match doc_node.get_members() {
+            Ok(members) => members,
+            Err(_) => return None,
+        };
+
+        let comment_array = members.iter().map(|member| {
+            match member.get_doc_comment() {
+                Ok(doc_comment) => {
+                    Some(String::from(doc_comment))},
+                Err(_) => None
+            }
+        }).collect();
+
+        Some(comment_array)
     }
 }
 
@@ -609,7 +652,9 @@ fn zero_fields_of_group(gen: &GeneratorContext, node_id: u64) -> ::capnp::Result
 
 fn generate_setter(gen: &GeneratorContext, discriminant_offset: u32,
                    styled_name: &str,
-                   field: &schema_capnp::field::Reader) -> ::capnp::Result<FormattedText> {
+                   field: &schema_capnp::field::Reader,
+                   has_doc_text: bool,
+                ) -> ::capnp::Result<FormattedText> {
 
     use crate::schema_capnp::*;
 
@@ -792,6 +837,9 @@ fn generate_setter(gen: &GeneratorContext, discriminant_offset: u32,
     match maybe_reader_type {
         Some(ref reader_type) => {
             let return_type = if return_result { "-> ::capnp::Result<()>" } else { "" };
+            if has_doc_text {
+                result.push(Line(format!("/** This is the same as `fn get_{}(self)`, except it \"sets\" instead of \"gets\". */", styled_name)))
+            };
             result.push(Line("#[inline]".to_string()));
             result.push(Line(format!("pub fn set_{}{}(&mut self, {}: {}) {} {{",
                                      styled_name, setter_generic_param, setter_param,
@@ -803,6 +851,9 @@ fn generate_setter(gen: &GeneratorContext, discriminant_offset: u32,
     }
     match maybe_builder_type {
         Some(builder_type) => {
+            if has_doc_text {
+                result.push(Line(format!("/** This is the same as `fn get_{}(self)`, except it \"initializes\" instead of \"gets\". */", styled_name)))
+            };
             result.push(Line("#[inline]".to_string()));
             let args = initter_params.join(", ");
             result.push(Line(format!("pub fn init_{}(self, {}) -> {} {{",
@@ -1133,6 +1184,9 @@ fn generate_node(gen: &GeneratorContext,
 
     match node_reader.which()? {
         node::File(()) => {
+            if let Some(doc_text) = gen.get_node_doc_text(node_id) {
+                output.push(Line(format!("/* {} */",doc_text.clone())));
+            }
             output.push(Branch(nested_output));
         }
         node::Struct(struct_reader) => {
@@ -1144,6 +1198,9 @@ fn generate_node(gen: &GeneratorContext,
                 output.push(Line(format!("pub mod {} {{ /* {} */", node_name, params.expanded_list.join(","))));
             } else {
                 output.push(Line(format!("pub mod {} {{", node_name)));
+            }
+            if let Some(doc_text) = gen.get_node_doc_text(node_reader.get_id()) {
+                output.push(Line(format!("/*! {} */",doc_text)));
             }
             let bracketed_params = if params.params == "" { "".to_string() } else { format!("<{}>", params.params) };
 
@@ -1161,14 +1218,37 @@ fn generate_node(gen: &GeneratorContext,
             let discriminant_offset = struct_reader.get_discriminant_offset();
 
             let fields = struct_reader.get_fields()?;
+
+            let mut has_field_docs = false;
+            let mut field_docs = Vec::<Option::<String>>::new();
+            if let Some(fd) = gen.get_fields_doc_text(node_id) {
+                has_field_docs = true;
+                field_docs = fd;
+            };
+            let mut field_docs = field_docs.iter();
+
             for field in fields.iter() {
+                // let mut field_comment = field_docs.next().unwrap();
+                // if has_field_docs {
+                //     if let Some(Some(doc_text)) = field_docs.next() {
+                //         preamble.push(Line(format!("/*! {} */", doc_text.clone())));
+                //    };
+                // };
                 let name = get_field_name(field)?;
                 let styled_name = camel_to_snake_case(name);
 
                 let discriminant_value = field.get_discriminant_value();
                 let is_union_field = discriminant_value != field::NO_DISCRIMINANT;
+                let mut has_doc_text = false;
 
                 if !is_union_field {
+                    if has_field_docs {
+                        if let Some(Some(doc_text)) = field_docs.next() {
+                            reader_members.push(Line(format!("/** {} */", doc_text.clone())));
+                            builder_members.push(Line(format!("/** {} */", doc_text.clone())));
+                            has_doc_text = true;
+                        };
+                    };
                     pipeline_impl_interior.push(generate_pipeline_getter(gen, field)?);
                     let (ty, get, default_decl) = getter_text(gen, &field, true, true)?;
                     if let Some(default) = default_decl {
@@ -1194,7 +1274,7 @@ fn generate_node(gen: &GeneratorContext,
                 }
 
                 builder_members.push(generate_setter(gen, discriminant_offset,
-                                                     &styled_name, &field)?);
+                                                     &styled_name, &field, has_doc_text)?);
 
                 reader_members.push(generate_haser(discriminant_offset, &styled_name, &field, true)?);
                 builder_members.push(generate_haser(discriminant_offset, &styled_name, &field, false)?);
@@ -1817,6 +1897,9 @@ fn generate_node(gen: &GeneratorContext,
                 output.push(Line(format!("pub mod {} {{ /* ({}) */", node_name, params.expanded_list.join(","))));
             } else {
                 output.push(Line(format!("pub mod {} {{", node_name)));
+            }
+            if let Some(doc_text) = gen.get_node_doc_text(node_id) {
+                output.push(Line(format!("/*! {} */",doc_text)));
             }
             output.push(Indent(Box::new(Branch(mod_interior))));
             output.push(Line("}".to_string()));
